@@ -13,8 +13,7 @@ const queryClient = new QueryClient();
 const Providers: FC<LayoutProps> = ({ children }) => {
   return (
     <QueryClientProvider client={queryClient}>
-      {/* <SessionProvider>{children}</SessionProvider> */}
-      {children}
+      <SessionProvider>{children}</SessionProvider>
     </QueryClientProvider>
   );
 };
