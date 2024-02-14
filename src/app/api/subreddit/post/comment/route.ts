@@ -1,13 +1,13 @@
 import { getAuthSession } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { CommentValidator } from '@/lib/validators/comment'
+import { CommentVoteValidator } from '@/lib/validators/vote'
 import { z } from 'zod'
 
 export async function PATCH(req: Request) {
   try {
     const body = await req.json()
 
-    const { postId, text, replyToId } = CommentValidator.parse(body)
+    const { commentId, voteType } = CommentVoteValidator.parse(body)
 
     const session = await getAuthSession()
 
@@ -15,13 +15,49 @@ export async function PATCH(req: Request) {
       return new Response('Unauthorized', { status: 401 })
     }
 
+    // check if user has already voted on this post
+    const existingVote = await db.commentVote.findFirst({
+      where: {
+        userId: session.user.id,
+        commentId,
+      },
+    })
+
+    if (existingVote) {
+      // if vote type is the same as existing vote, delete the vote
+      if (existingVote.type === voteType) {
+        await db.commentVote.delete({
+          where: {
+            userId_commentId: {
+              commentId,
+              userId: session.user.id,
+            },
+          },
+        })
+        return new Response('OK')
+      } else {
+        // if vote type is different, update the vote
+        await db.commentVote.update({
+          where: {
+            userId_commentId: {
+              commentId,
+              userId: session.user.id,
+            },
+          },
+          data: {
+            type: voteType,
+          },
+        })
+        return new Response('OK')
+      }
+    }
+
     // if no existing vote, create a new vote
-    await db.comment.create({
+    await db.commentVote.create({
       data: {
-        text,
-        postId,
-        authorId: session.user.id,
-        replyToId,
+        type: voteType,
+        userId: session.user.id,
+        commentId,
       },
     })
 
